@@ -1,4 +1,4 @@
-package com.wondersgroup.advertisement.common.util;
+package com.wondersgroup.sabic.aps.publicAppeal.action;
 
 import java.io.BufferedInputStream;
 import java.io.File;
@@ -28,12 +28,64 @@ import jxl.write.biff.RowsExceededException;
 /**
  * 导出excel工具类
  * @author wy
- *
  */
 public class ExportExcelUtil {
 
 	/**
-	 * 导出基本的excel表
+	 * 导出基本的excel表,单表
+	 * @param fileName excel的文件名
+	 * @param sheetName excel的表名
+	 * @param headList excel表内容标题;null代表没有
+	 * @param dataList excel表的内容;不能为null
+	 * @param widthList excel表的列距;null代表默认
+	 * @param format 显示格式
+	 * @param response
+	 * @throws IOException 
+	 * @throws WriteException 
+	 */
+	public static void exportBaseExcelOne(String fileName, String sheetName, List<String> headList,
+			List<List<String>> dataList,List<Integer> widthList,WritableCellFormat format,HttpServletResponse response) throws Exception  {
+		WritableWorkbook book = null;
+		OutputStream os = response.getOutputStream();// 取得输出流
+		response.reset();// 清空输出流
+		response.setHeader("Content-disposition", "attachment; filename="+fileName+".xls");// 设定输出文件头
+		response.setContentType("application/msexcel");// 定义输出类型
+		boolean candoflag = true;//执行标志
+		int headRow = 0;//行标号
+		try {
+			if (candoflag) {
+				book = Workbook.createWorkbook(os);
+				WritableSheet sheet = book.createSheet(sheetName, 0);//一张表
+				if(widthList!=null){//行宽设置
+					for (int i = 0; i < widthList.size(); i++) {
+						sheet.setColumnView(i, widthList.get(i));
+					}
+				}
+				if(headList!=null){//标题设置
+					headRow = 1;
+					for (int i = 0; i < headList.size(); i++) {
+						sheet.addCell(new Label(i, 0, headList.get(i),format));//第一行显示
+					}
+				}
+				if (dataList != null) {//数据设置
+					for (int i = 0; i < dataList.size(); i++) {
+						for (int j = 0; j < dataList.get(i).size(); j++) {
+							sheet.addCell(new Label(j, i+headRow, dataList.get(i).get(j),format));
+						}
+					}
+				}
+				book.write();
+			}
+		} finally {
+			if (book != null) {
+				book.close();
+				os.close();
+			}
+		}
+	}
+	
+	/**
+	 * 导出基本的excel表,多表
 	 * @param fileName excel的文件名
 	 * @param sheetName excel的表名
 	 * @param sheetIndex 操作表下标(0为第一张)
@@ -45,36 +97,48 @@ public class ExportExcelUtil {
 	 * @throws IOException 
 	 * @throws WriteException 
 	 */
-	public static void exportBaseExcel(String fileName, String sheetName, int sheetIndex, List<String> headList,
-			List<ArrayList<String>> dataList,List<Integer> widthList,WritableCellFormat format,HttpServletResponse response) throws Exception  {
-		fileName = toUTF8(fileName);
-		sheetName = toUTF8(sheetName);
+	public static void exportBaseExcelMany(String fileName, String[] sheetNames,int[] sheetIndexs, List<List<String>> headLists,
+			List<List<List<String>>> dataLists,List<List<Integer>> widthLists,List<WritableCellFormat> formats,HttpServletResponse response) throws Exception  {
 		WritableWorkbook book = null;
 		OutputStream os = response.getOutputStream();// 取得输出流
 		response.reset();// 清空输出流
 		response.setHeader("Content-disposition", "attachment; filename="+fileName+".xls");// 设定输出文件头
 		response.setContentType("application/msexcel");// 定义输出类型
 		boolean candoflag = true;
-		int headRow = 0;
+		int[] headRow = new int[sheetIndexs.length];
 		try {
 			if (candoflag) {
 				book = Workbook.createWorkbook(os);
-				WritableSheet sheet = book.createSheet(sheetName, sheetIndex);//一张表
-				if(widthList!=null){
-					for (int i = 0; i < widthList.size(); i++) {
-						sheet.setColumnView(i, widthList.get(i));
+				WritableSheet[] sheets = new WritableSheet[sheetNames.length];
+				for (int i = 0; i < sheetNames.length; i++) {
+					sheets[i] = book.createSheet(sheetNames[i], 0);//一张表
+				}
+				
+				if(widthLists!=null){
+					for (int i = 0; i < widthLists.size(); i++) {
+						if(widthLists.get(i)!=null){
+							for (int j = 0; j < widthLists.get(i).size(); j++) {
+								sheets[i].setColumnView(j, widthLists.get(i).get(j));
+							}
+						}
 					}
 				}
-				if(headList!=null){
-					headRow = 1;
-					for (int i = 0; i < headList.size(); i++) {
-						sheet.addCell(new Label(i, 0, headList.get(i),format));//第一行显示
+				if(headLists!=null){
+					for (int i = 0; i < headLists.size(); i++) {
+						headRow[i] = 1;
+						if(headLists.get(i)!=null){
+							for (int j = 0; j < headLists.get(i).size(); j++) {
+								sheets[i].addCell(new Label(j, 0, headLists.get(i).get(j),formats.get(i)));//第一行显示
+							}
+						}
 					}
 				}
-				if (dataList != null) {
-					for (int i = 0; i < dataList.size(); i++) {
-						for (int j = 0; j < dataList.get(i).size(); j++) {
-							sheet.addCell(new Label(j, i+headRow, dataList.get(i).get(j),format));
+				if (dataLists != null) {
+					for (int i = 0; i < dataLists.size(); i++) {
+						for (int j = 0; j < dataLists.get(i).size(); j++) {
+							for (int j2 = 0; j2 < dataLists.get(i).get(j).size(); j2++) {
+								sheets[i].addCell(new Label(j2, j+headRow[i], dataLists.get(i).get(j).get(j2),formats.get(i)));
+							}
 						}
 					}
 				}
@@ -151,7 +215,6 @@ public class ExportExcelUtil {
 			WritableSheet sheet, String fileName,int row, List<String> headList,
 			List<ArrayList<String>> dataList, List<Integer> widthList,
 			WritableCellFormat format, HttpServletResponse response) throws Exception {
-		fileName = toUTF8(fileName);
 		response.reset();// 清空输出流
 		response.setHeader("Content-disposition", "attachment; filename="+fileName+".xls");// 设定输出文件头
 		response.setContentType("application/msexcel");// 定义输出类型
@@ -223,7 +286,7 @@ public class ExportExcelUtil {
 	}
 	
 	/**
-     * UTF-8编码 (文件名存在中文必须转码，否则乱码)
+     * UTF-8编码
      * 
      * @param s
      * @return
